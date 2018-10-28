@@ -19,11 +19,11 @@ class UserViewModel: ViewModel, ViewModelType {
         let repositoriesSelection: Observable<Void>
         let followersSelection: Observable<Void>
         let followingSelection: Observable<Void>
+        let selection: Driver<UserSectionItem>
     }
 
     struct Output {
-        let fetching: Driver<Bool>
-        let error: Driver<Error>
+        let items: Observable<[UserSection]>
         let username: Driver<String>
         let fullname: Driver<String>
         let description: Driver<String>
@@ -35,6 +35,7 @@ class UserViewModel: ViewModel, ViewModelType {
         let openInWebSelected: Driver<URL?>
         let repositoriesSelected: Driver<RepositoriesViewModel>
         let usersSelected: Driver<UsersViewModel>
+        let selectedEvent: Driver<UserSectionItem>
     }
 
     let user: BehaviorRelay<User?>
@@ -45,12 +46,6 @@ class UserViewModel: ViewModel, ViewModelType {
     }
 
     func transform(input: Input) -> Output {
-        let activityIndicator = ActivityIndicator()
-        let errorTracker = ErrorTracker()
-
-        let fetching = activityIndicator.asDriver()
-        let errors = errorTracker.asDriver()
-
         input.headerRefresh.flatMapLatest { () -> Observable<User> in
             let request: Observable<User>
             if let user = self.user.value, !user.isMine() {
@@ -63,8 +58,9 @@ class UserViewModel: ViewModel, ViewModelType {
                 request = self.provider.profile()
             }
             return request
-                .trackActivity(activityIndicator)
-                .trackError(errorTracker)
+                .trackActivity(self.loading)
+                .trackActivity(self.headerLoading)
+                .trackError(self.error)
             }.subscribe(onNext: { (user) in
                 self.user.accept(user)
             }).disposed(by: rx.disposeBag)
@@ -98,8 +94,24 @@ class UserViewModel: ViewModel, ViewModelType {
                 return viewModel
         }
 
-        return Output(fetching: fetching,
-                      error: errors,
+        let items = user.filterNil().map { (user) -> [UserSection] in
+            // Events
+            let eventsViewModel = EventsViewModel(mode: EventsMode.user(user: user), provider: self.provider)
+            let eventsCellViewModel = UserDetailCellViewModel(with: R.string.localizable.userEventsCellTitle.key.localized(),
+                                                              image: R.image.icon_cell_events(), destinationViewModel: eventsViewModel)
+
+            let items = [
+                UserSection.user(title: "", items: [
+                    UserSectionItem.eventsItem(viewModel: eventsCellViewModel)
+                    ])
+            ]
+
+            return items
+        }
+
+        let selectedEvent = input.selection
+
+        return Output(items: items,
                       username: username,
                       fullname: fullname,
                       description: description,
@@ -110,6 +122,7 @@ class UserViewModel: ViewModel, ViewModelType {
                       imageSelected: imageSelected,
                       openInWebSelected: openInWebSelected,
                       repositoriesSelected: repositoriesSelected,
-                      usersSelected: usersSelected)
+                      usersSelected: usersSelected,
+                      selectedEvent: selectedEvent)
     }
 }

@@ -8,8 +8,7 @@
 
 import UIKit
 import RAMAnimatedTabBarController
-
-let provider = Api.shared
+import Localize_Swift
 
 enum HomeTabBarItem: Int {
     case search, news, profile, notifications, settings, login
@@ -21,14 +20,16 @@ enum HomeTabBarItem: Int {
             vc.viewModel = (viewModel as? SearchViewModel)!
             return NavigationController(rootViewController: vc)
         case .news:
-            let vc = ViewController()
+            let vc = R.storyboard.main.eventsViewController()!
+            vc.viewModel = (viewModel as? EventsViewModel)!
             return NavigationController(rootViewController: vc)
         case .profile:
             let vc = R.storyboard.main.userViewController()!
             vc.viewModel = (viewModel as? UserViewModel)!
             return NavigationController(rootViewController: vc)
         case .notifications:
-            let vc = ViewController()
+            let vc = R.storyboard.main.notificationsViewController()!
+            vc.viewModel = (viewModel as? NotificationsViewModel)!
             return NavigationController(rootViewController: vc)
         case .settings:
             let vc = R.storyboard.main.settingsViewController()!
@@ -54,12 +55,12 @@ enum HomeTabBarItem: Int {
 
     var title: String {
         switch self {
-        case .search: return "Search"
-        case .news: return "News"
-        case .profile: return "Profile"
-        case .notifications: return "Activities"
-        case .settings: return "Settings"
-        case .login: return "Login"
+        case .search: return R.string.localizable.homeTabBarSearchTitle.key.localized()
+        case .news: return R.string.localizable.homeTabBarEventsTitle.key.localized()
+        case .profile: return R.string.localizable.homeTabBarProfileTitle.key.localized()
+        case .notifications: return R.string.localizable.homeTabBarNotificationsTitle.key.localized()
+        case .settings: return R.string.localizable.homeTabBarSettingsTitle.key.localized()
+        case .login: return R.string.localizable.homeTabBarLoginTitle.key.localized()
         }
     }
 
@@ -111,6 +112,15 @@ class HomeTabBarController: RAMAnimatedTabBarController, Navigatable {
         hero.isEnabled = true
         tabBar.hero.id = "TabBarID"
         tabBar.isTranslucent = false
+
+        NotificationCenter.default
+            .rx.notification(NSNotification.Name(LCLLanguageChangeNotification))
+            .subscribe { [weak self] (event) in
+                self?.animatedItems.forEach({ (item) in
+                    item.title = HomeTabBarItem(rawValue: item.tag)?.title
+                })
+                self?.viewControllers = self?.viewControllers
+            }.disposed(by: rx.disposeBag)
 
         themeService.rx
             .bind({ $0.primaryDark }, to: tabBar.rx.barTintColor)

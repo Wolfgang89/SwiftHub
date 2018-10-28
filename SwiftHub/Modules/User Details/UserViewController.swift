@@ -12,6 +12,8 @@ import RxCocoa
 import RxDataSources
 import AttributedLib
 
+private let reuseIdentifier = R.reuseIdentifier.userDetailCell.identifier
+
 class UserViewController: TableViewController {
 
     var viewModel: UserViewModel!
@@ -111,30 +113,46 @@ class UserViewController: TableViewController {
 
         navigationItem.titleView = navigationHeaderView
         navigationItem.rightBarButtonItem = rightBarButton
-        if #available(iOS 11.0, *) {
-            navigationController?.navigationBar.prefersLargeTitles = false
-        }
 
         emptyDataSetTitle = ""
         emptyDataSetImage = nil
         stackView.insertArrangedSubview(headerView, at: 0)
         tableView.footRefreshControl = nil
+
+        tableView.register(R.nib.userDetailCell)
     }
 
     override func bindViewModel() {
         super.bindViewModel()
 
-        let refresh = Observable.of(Observable.just(()), headerRefreshTrigger).merge()
+        let refresh = Observable.of(Observable.just(()), headerRefreshTrigger, languageChanged.asObservable()).merge()
         let input = UserViewModel.Input(headerRefresh: refresh,
                                         imageSelection: ownerImageView.rx.tapGesture().when(.recognized).mapToVoid(),
                                         openInWebSelection: rightBarButton.rx.tap.asObservable(),
                                         repositoriesSelection: repositoriesButton.rx.tap.asObservable(),
                                         followersSelection: followersButton.rx.tap.asObservable(),
-                                        followingSelection: followingButton.rx.tap.asObservable())
+                                        followingSelection: followingButton.rx.tap.asObservable(),
+                                        selection: tableView.rx.modelSelected(UserSectionItem.self).asDriver())
         let output = viewModel.transform(input: input)
 
-        output.fetching.asObservable().bind(to: isLoading).disposed(by: rx.disposeBag)
-        output.fetching.asObservable().bind(to: isHeaderLoading).disposed(by: rx.disposeBag)
+        viewModel.loading.asObservable().bind(to: isLoading).disposed(by: rx.disposeBag)
+        viewModel.headerLoading.asObservable().bind(to: isHeaderLoading).disposed(by: rx.disposeBag)
+
+        let dataSource = RxTableViewSectionedReloadDataSource<UserSection>(configureCell: { dataSource, tableView, indexPath, item in
+            switch item {
+            case .eventsItem(let viewModel):
+                let cell = (tableView.dequeueReusableCell(withIdentifier: reuseIdentifier, for: indexPath) as? UserDetailCell)!
+                cell.bind(to: viewModel)
+                return cell
+            }
+        }, titleForHeaderInSection: { dataSource, index in
+            let section = dataSource[index]
+            return section.title
+        })
+
+        output.items
+            .bind(to: tableView.rx.items(dataSource: dataSource))
+            .disposed(by: rx.disposeBag)
 
         output.username.drive(usernameLabel.rx.text).disposed(by: rx.disposeBag)
         output.fullname.drive(fullnameLabel.rx.text).disposed(by: rx.disposeBag)
@@ -148,15 +166,18 @@ class UserViewController: TableViewController {
         }).disposed(by: rx.disposeBag)
 
         output.repositoriesCount.drive(onNext: { [weak self] (count) in
-            self?.repositoriesButton.setAttributedTitle(self?.attributetText(title: "Repositories", value: count), for: .normal)
+            let text = R.string.localizable.userRepositoriesButtonTitle.key.localized()
+            self?.repositoriesButton.setAttributedTitle(self?.attributetText(title: text, value: count), for: .normal)
         }).disposed(by: rx.disposeBag)
 
         output.followersCount.drive(onNext: { [weak self] (count) in
-            self?.followersButton.setAttributedTitle(self?.attributetText(title: "Followers", value: count), for: .normal)
+            let text = R.string.localizable.userFollowersButtonTitle.key.localized()
+            self?.followersButton.setAttributedTitle(self?.attributetText(title: text, value: count), for: .normal)
         }).disposed(by: rx.disposeBag)
 
         output.followingCount.drive(onNext: { [weak self] (count) in
-            self?.followingButton.setAttributedTitle(self?.attributetText(title: "Following", value: count), for: .normal)
+            let text = R.string.localizable.userFollowingButtonTitle.key.localized()
+            self?.followingButton.setAttributedTitle(self?.attributetText(title: text, value: count), for: .normal)
         }).disposed(by: rx.disposeBag)
 
         output.imageSelected.drive(onNext: { [weak self] () in
@@ -172,15 +193,20 @@ class UserViewController: TableViewController {
         }).disposed(by: rx.disposeBag)
 
         output.repositoriesSelected.drive(onNext: { [weak self] (viewModel) in
-            self?.navigator.show(segue: .repositories(viewModel: viewModel), sender: self)
+            self?.navigator.show(segue: .repositories(viewModel: viewModel), sender: self, transition: .detail)
         }).disposed(by: rx.disposeBag)
 
         output.usersSelected.drive(onNext: { [weak self] (viewModel) in
-            self?.navigator.show(segue: .users(viewModel: viewModel), sender: self)
+            self?.navigator.show(segue: .users(viewModel: viewModel), sender: self, transition: .detail)
         }).disposed(by: rx.disposeBag)
 
-        output.error.drive(onNext: { (error) in
-            logError("\(error)")
+        output.selectedEvent.drive(onNext: { [weak self] (item) in
+            switch item {
+            case .eventsItem(let viewModel):
+                if let viewModel = viewModel.destinationViewModel as? EventsViewModel {
+                    self?.navigator.show(segue: .events(viewModel: viewModel), sender: self, transition: .detail)
+                }
+            }
         }).disposed(by: rx.disposeBag)
     }
 
@@ -190,7 +216,7 @@ class UserViewController: TableViewController {
 
         let valueAttributes = Attributes {
             return $0.foreground(color: .textWhite())
-                .font(.boldSystemFont(ofSize: 22))
+                .font(.boldSystemFont(ofSize: 20))
                 .paragraphStyle(paragraph)
         }
 

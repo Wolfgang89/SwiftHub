@@ -16,13 +16,13 @@ enum ApiError: Error {
 }
 
 protocol SwiftHubAPI {
-    // MARK: - Unauthenticated requests
+    // MARK: - Authentication is optional
 
     func searchRepositories(query: String) -> Observable<RepositorySearch>
-    func repository(owner: String, repo: String) -> Observable<Repository>
-    func watchers(owner: String, repo: String, page: Int) -> Observable<[User]>
-    func stargazers(owner: String, repo: String, page: Int) -> Observable<[User]>
-    func forks(owner: String, repo: String, page: Int) -> Observable<[Repository]>
+    func repository(fullName: String) -> Observable<Repository>
+    func watchers(fullName: String, page: Int) -> Observable<[User]>
+    func stargazers(fullName: String, page: Int) -> Observable<[User]>
+    func forks(fullName: String, page: Int) -> Observable<[Repository]>
 
     func searchUsers(query: String) -> Observable<UserSearch>
     func user(owner: String) -> Observable<User>
@@ -32,9 +32,17 @@ protocol SwiftHubAPI {
     func userFollowers(username: String, page: Int) -> Observable<[User]>
     func userFollowing(username: String, page: Int) -> Observable<[User]>
 
-    // MARK: - Authenticated requests
+    func events(page: Int) -> Observable<[Event]>
+    func repositoryEvents(owner: String, repo: String, page: Int) -> Observable<[Event]>
+    func userReceivedEvents(username: String, page: Int) -> Observable<[Event]>
+    func userPerformedEvents(username: String, page: Int) -> Observable<[Event]>
+
+    // MARK: - Authentication is required
 
     func profile() -> Observable<User>
+
+    func notifications(all: Bool, participating: Bool, page: Int) -> Observable<[Notification]>
+    func repositoryNotifications(fullName: String, all: Bool, participating: Bool, page: Int) -> Observable<[Notification]>
 }
 
 class Api: SwiftHubAPI {
@@ -43,7 +51,7 @@ class Api: SwiftHubAPI {
 }
 
 extension Api {
-    // MARK: - Unauthenticated requests
+    // MARK: - Authentication is optional
 
     func searchRepositories(query: String) -> Observable<RepositorySearch> {
         return provider.request(.searchRepositories(query: query))
@@ -51,26 +59,26 @@ extension Api {
             .observeOn(MainScheduler.instance)
     }
 
-    func watchers(owner: String, repo: String, page: Int) -> Observable<[User]> {
-        return provider.request(.watchers(owner: owner, repo: repo, page: page))
+    func watchers(fullName: String, page: Int) -> Observable<[User]> {
+        return provider.request(.watchers(fullName: fullName, page: page))
             .mapArray(User.self)
             .observeOn(MainScheduler.instance)
     }
 
-    func stargazers(owner: String, repo: String, page: Int) -> Observable<[User]> {
-        return provider.request(.stargazers(owner: owner, repo: repo, page: page))
+    func stargazers(fullName: String, page: Int) -> Observable<[User]> {
+        return provider.request(.stargazers(fullName: fullName, page: page))
             .mapArray(User.self)
             .observeOn(MainScheduler.instance)
     }
 
-    func forks(owner: String, repo: String, page: Int) -> Observable<[Repository]> {
-        return provider.request(.forks(owner: owner, repo: repo, page: page))
+    func forks(fullName: String, page: Int) -> Observable<[Repository]> {
+        return provider.request(.forks(fullName: fullName, page: page))
             .mapArray(Repository.self)
             .observeOn(MainScheduler.instance)
     }
 
-    func repository(owner: String, repo: String) -> Observable<Repository> {
-        return provider.request(.repository(owner: owner, repo: repo))
+    func repository(fullName: String) -> Observable<Repository> {
+        return provider.request(.repository(fullName: fullName))
             .mapObject(Repository.self)
             .observeOn(MainScheduler.instance)
     }
@@ -116,14 +124,50 @@ extension Api {
             .mapArray(User.self)
             .observeOn(MainScheduler.instance)
     }
+
+    func events(page: Int) -> Observable<[Event]> {
+        return provider.request(.events(page: page))
+            .mapArray(Event.self)
+            .observeOn(MainScheduler.instance)
+    }
+
+    func repositoryEvents(owner: String, repo: String, page: Int) -> Observable<[Event]> {
+        return provider.request(.repositoryEvents(owner: owner, repo: repo, page: page))
+            .mapArray(Event.self)
+            .observeOn(MainScheduler.instance)
+    }
+
+    func userReceivedEvents(username: String, page: Int) -> Observable<[Event]> {
+        return provider.request(.userReceivedEvents(username: username, page: page))
+            .mapArray(Event.self)
+            .observeOn(MainScheduler.instance)
+    }
+
+    func userPerformedEvents(username: String, page: Int) -> Observable<[Event]> {
+        return provider.request(.userPerformedEvents(username: username, page: page))
+            .mapArray(Event.self)
+            .observeOn(MainScheduler.instance)
+    }
 }
 
 extension Api {
-    // MARK: - Unauthenticated requests
+    // MARK: - Authentication is required
 
     func profile() -> Observable<User> {
         return provider.request(.profile)
             .mapObject(User.self)
+            .observeOn(MainScheduler.instance)
+    }
+
+    func notifications(all: Bool, participating: Bool, page: Int) -> Observable<[Notification]> {
+        return provider.request(.notifications(all: all, participating: participating, page: page))
+            .mapArray(Notification.self)
+            .observeOn(MainScheduler.instance)
+    }
+
+    func repositoryNotifications(fullName: String, all: Bool, participating: Bool, page: Int) -> Observable<[Notification]> {
+        return provider.request(.notifications(all: all, participating: participating, page: page))
+            .mapArray(Notification.self)
             .observeOn(MainScheduler.instance)
     }
 }

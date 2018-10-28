@@ -12,24 +12,20 @@ import RxCocoa
 
 class SettingThemeCellViewModel {
 
-    let type: SettingType
     let title: Driver<String>
     let imageName: Driver<String>
     let showDisclosure: Driver<Bool>
     let isEnabled: Driver<Bool>
 
-    let settingModel: SettingModel
-    let destinationViewModel: Any?
+    let model: SettingModel
 
     let nightModeEnabled = PublishSubject<Bool>()
 
-    init(with settingModel: SettingModel, isEnabled: Bool, destinationViewModel: Any?) {
-        self.destinationViewModel = destinationViewModel
-        self.settingModel = settingModel
-        type = settingModel.type
-        title = Driver.just("\(settingModel.title ?? "")")
-        imageName = Driver.just("\(settingModel.leftImage ?? "")")
-        showDisclosure = Driver.just(settingModel.showDisclosure)
+    init(with model: SettingModel, isEnabled: Bool) {
+        self.model = model
+        title = Driver.just("\(model.title ?? "")")
+        imageName = Driver.just("\(model.leftImage ?? "")")
+        showDisclosure = Driver.just(model.showDisclosure)
         self.isEnabled = Driver.just(isEnabled)
     }
 }

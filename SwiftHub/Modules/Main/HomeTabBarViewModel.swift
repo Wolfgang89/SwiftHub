@@ -29,7 +29,7 @@ class HomeTabBarViewModel: ViewModel, ViewModelType {
 
         let tabBarItems = loggedIn.map { (loggedIn) -> [HomeTabBarItem] in
             if loggedIn {
-                return [.search, .news, .profile, .notifications, .settings]
+                return [.news, .search, .profile, .notifications, .settings]
             } else {
                 return [.search, .login, .settings]
             }
@@ -44,20 +44,20 @@ class HomeTabBarViewModel: ViewModel, ViewModelType {
             let viewModel = SearchViewModel(provider: provider)
             return viewModel
         case .news:
-            let viewModel = ViewModel(provider: provider)
+            let user = User.currentUser()!
+            let viewModel = EventsViewModel(mode: .user(user: user), provider: provider)
             return viewModel
         case .profile:
             let viewModel = UserViewModel(user: nil, provider: provider)
             return viewModel
         case .notifications:
-            let viewModel = ViewModel(provider: provider)
+            let viewModel = NotificationsViewModel(mode: .mine, provider: provider)
             return viewModel
         case .settings:
             let viewModel = SettingsViewModel(loggedIn: loggedIn, provider: provider)
             return viewModel
         case .login:
             let viewModel = LoginViewModel(provider: provider)
-            viewModel.loginEvent.bind(to: loggedIn).disposed(by: rx.disposeBag)
             return viewModel
         }
     }

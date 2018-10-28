@@ -27,7 +27,10 @@ class SettingsViewController: TableViewController {
     override func makeUI() {
         super.makeUI()
 
-        navigationTitle = "Settings"
+        languageChanged.subscribe(onNext: { [weak self] () in
+            self?.navigationTitle = R.string.localizable.settingsNavigationTitle.key.localized()
+        }).disposed(by: rx.disposeBag)
+
         tableView.register(R.nib.settingCell)
         tableView.register(R.nib.settingThemeCell)
         tableView.headRefreshControl = nil
@@ -37,18 +40,23 @@ class SettingsViewController: TableViewController {
     override func bindViewModel() {
         super.bindViewModel()
 
-        let refresh = Observable.of(rx.viewWillAppear.mapToVoid()).merge()
+        let refresh = Observable.of(rx.viewDidLoad.mapToVoid(),
+                                    languageChanged.asObservable()).merge()
         let input = SettingsViewModel.Input(trigger: refresh,
                                             selection: tableView.rx.modelSelected(SettingsSectionItem.self).asDriver())
         let output = viewModel.transform(input: input)
 
         let dataSource = RxTableViewSectionedReloadDataSource<SettingsSection>(configureCell: { dataSource, tableView, indexPath, item in
             switch item {
-            case .settingThemeItem(let viewModel):
+            case .nightModeItem(let viewModel):
                 let cell = (tableView.dequeueReusableCell(withIdentifier: themeReuseIdentifier, for: indexPath) as? SettingThemeCell)!
                 cell.bind(to: viewModel)
                 return cell
-            case .settingItem(let viewModel):
+            case .themeItem(let viewModel),
+                 .languageItem(let viewModel),
+                 .removeCacheItem(let viewModel),
+                 .acknowledgementsItem(let viewModel),
+                 .logoutItem(let viewModel):
                 let cell = (tableView.dequeueReusableCell(withIdentifier: reuseIdentifier, for: indexPath) as? SettingCell)!
                 cell.bind(to: viewModel)
                 return cell
@@ -63,27 +71,34 @@ class SettingsViewController: TableViewController {
             .disposed(by: rx.disposeBag)
 
         output.selectedEvent.drive(onNext: { [weak self] (item) in
-            self?.tableView.deselectRow(at: (self?.tableView.indexPathForSelectedRow)!, animated: true)
             switch item {
-            case .settingItem(let viewModel):
-                switch viewModel.type {
-                case .acknowledgements:
-                    self?.navigator.show(segue: .acknowledgements, sender: self, transition: .detail)
-                case .removeCache:
-                    self?.clearCacheAction()
-                case .logout:
-                    self?.logout()
-                default: break
+            case .nightModeItem:
+                self?.deselectSelectedRow()
+            case .themeItem:
+                if let viewModel = self?.viewModel.viewModel(for: item) as? ThemeViewModel {
+                    self?.navigator.show(segue: .theme(viewModel: viewModel), sender: self, transition: .detail)
                 }
-            default: break
+            case .languageItem:
+                if let viewModel = self?.viewModel.viewModel(for: item) as? LanguageViewModel {
+                    self?.navigator.show(segue: .language(viewModel: viewModel), sender: self, transition: .detail)
+                }
+            case .removeCacheItem:
+                self?.deselectSelectedRow()
+                self?.clearCacheAction()
+            case .acknowledgementsItem:
+                self?.navigator.show(segue: .acknowledgements, sender: self, transition: .detail)
+            case .logoutItem:
+                self?.deselectSelectedRow()
+                self?.logout()
             }
         }).disposed(by: rx.disposeBag)
     }
 
     func clearCacheAction() {
         LibsManager.shared.removeKingfisherCache { [weak self] in
-            let alertController = UIAlertController(title: "Cache Successfully Cleared", message: nil, preferredStyle: UIAlertControllerStyle.alert)
-            let okAction = UIAlertAction(title: "Ok", style: .default) { (result: UIAlertAction) in }
+            let alertController = UIAlertController(title: R.string.localizable.settingsRemoveCacheAlertSuccessMessage.key.localized(),
+                                                    message: nil, preferredStyle: UIAlertController.Style.alert)
+            let okAction = UIAlertAction(title: R.string.localizable.commonOK.key.localized(), style: .default) { (result: UIAlertAction) in }
             alertController.addAction(okAction)
             self?.present(alertController, animated: true, completion: nil)
         }

@@ -107,8 +107,8 @@ class RepositoryViewController: TableViewController {
                                               forksSelection: forksButton.rx.tap.asObservable())
         let output = viewModel.transform(input: input)
 
-        output.fetching.asObservable().bind(to: isLoading).disposed(by: rx.disposeBag)
-        output.fetching.asObservable().bind(to: isHeaderLoading).disposed(by: rx.disposeBag)
+        viewModel.loading.asObservable().bind(to: isLoading).disposed(by: rx.disposeBag)
+        viewModel.headerLoading.asObservable().bind(to: isHeaderLoading).disposed(by: rx.disposeBag)
 
         output.name.drive(onNext: { [weak self] (title) in
             self?.navigationTitle = title
@@ -122,15 +122,18 @@ class RepositoryViewController: TableViewController {
         }).disposed(by: rx.disposeBag)
 
         output.watchersCount.drive(onNext: { [weak self] (count) in
-            self?.watchersButton.setAttributedTitle(self?.attributetText(title: "Watchers", value: count), for: .normal)
+            let text = R.string.localizable.repositoryWatchersButtonTitle.key.localized()
+            self?.watchersButton.setAttributedTitle(self?.attributetText(title: text, value: count), for: .normal)
         }).disposed(by: rx.disposeBag)
 
         output.starsCount.drive(onNext: { [weak self] (count) in
-            self?.starsButton.setAttributedTitle(self?.attributetText(title: "Stars", value: count), for: .normal)
+            let text = R.string.localizable.repositoryStarsButtonTitle.key.localized()
+            self?.starsButton.setAttributedTitle(self?.attributetText(title: text, value: count), for: .normal)
         }).disposed(by: rx.disposeBag)
 
         output.forksCount.drive(onNext: { [weak self] (count) in
-            self?.forksButton.setAttributedTitle(self?.attributetText(title: "Forks", value: count), for: .normal)
+            let text = R.string.localizable.repositoryForksButtonTitle.key.localized()
+            self?.forksButton.setAttributedTitle(self?.attributetText(title: text, value: count), for: .normal)
         }).disposed(by: rx.disposeBag)
 
         output.imageSelected.drive(onNext: { [weak self] (viewModel) in
@@ -150,10 +153,6 @@ class RepositoryViewController: TableViewController {
         output.usersSelected.drive(onNext: { [weak self] (viewModel) in
             self?.navigator.show(segue: .users(viewModel: viewModel), sender: self)
         }).disposed(by: rx.disposeBag)
-
-        output.error.drive(onNext: { (error) in
-            logError("\(error)")
-        }).disposed(by: rx.disposeBag)
     }
 
     func attributetText(title: String, value: Int) -> NSAttributedString {
@@ -162,7 +161,7 @@ class RepositoryViewController: TableViewController {
 
         let valueAttributes = Attributes {
             return $0.foreground(color: .textWhite())
-                .font(.boldSystemFont(ofSize: 22))
+                .font(.boldSystemFont(ofSize: 20))
                 .paragraphStyle(paragraph)
         }
 

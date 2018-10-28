@@ -23,8 +23,6 @@ class LoginViewModel: ViewModel, ViewModelType {
     }
 
     struct Output {
-        let fetching: Driver<Bool>
-        let error: Driver<Error>
         let basicLoginTriggered: Driver<Void>
         let oAuthLoginTriggered: Driver<Void>
         let basicLoginButtonEnabled: Driver<Bool>
@@ -35,15 +33,9 @@ class LoginViewModel: ViewModel, ViewModelType {
     let login = BehaviorRelay(value: "")
     let password = BehaviorRelay(value: "")
 
-    let loginEvent = PublishSubject<Bool>()
+    var tokenSaved = PublishSubject<Void>()
 
     func transform(input: Input) -> Output {
-        let activityIndicator = ActivityIndicator()
-        let errorTracker = ErrorTracker()
-
-        let fetching = activityIndicator.asDriver()
-        let errors = errorTracker.asDriver()
-
         let basicLoginTriggered = input.basicLoginTrigger
         let oAuthLoginTriggered = input.oAuthLoginTrigger
 
@@ -52,6 +44,7 @@ class LoginViewModel: ViewModel, ViewModelType {
                 let password = self?.password.value,
                 let authHash = "\(login):\(password)".base64Encoded {
                 AuthManager.setToken(token: Token(basicToken: "Basic \(authHash)"))
+                self?.tokenSaved.onNext(())
             }
         }).disposed(by: rx.disposeBag)
 
@@ -59,18 +52,27 @@ class LoginViewModel: ViewModel, ViewModelType {
             logDebug("oAuth login coming soon.")
         }).disposed(by: rx.disposeBag)
 
+        tokenSaved.flatMapLatest { () -> Observable<User> in
+            return self.provider.profile()
+                .trackActivity(self.loading)
+                .trackError(self.error)
+            }.subscribe(onNext: { (user) in
+                user.save()
+                AuthManager.tokenValidated()
+            }, onError: { (error) in
+                AuthManager.removeToken()
+            }).disposed(by: rx.disposeBag)
+
         let inputs = BehaviorRelay.combineLatest(login, password)
 
-        let basicLoginButtonEnabled = BehaviorRelay.combineLatest(inputs, activityIndicator.asObservable()) {
+        let basicLoginButtonEnabled = BehaviorRelay.combineLatest(inputs, self.loading.asObservable()) {
             return $0.0.isNotEmpty && $0.1.isNotEmpty && !$1
         }.asDriver(onErrorJustReturn: false)
 
         let hidesBasicLoginView = input.segmentSelection.map { $0 != LoginSegments.basic }
         let hidesOAuthLoginView = input.segmentSelection.map { $0 != LoginSegments.oAuth }
 
-        return Output(fetching: fetching,
-                      error: errors,
-                      basicLoginTriggered: basicLoginTriggered,
+        return Output(basicLoginTriggered: basicLoginTriggered,
                       oAuthLoginTriggered: oAuthLoginTriggered,
                       basicLoginButtonEnabled: basicLoginButtonEnabled,
                       hidesBasicLoginView: hidesBasicLoginView,

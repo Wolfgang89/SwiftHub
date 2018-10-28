@@ -19,8 +19,8 @@ enum SearchSegments: Int {
 
     var title: String {
         switch self {
-        case .repositories: return "Repositories"
-        case .users: return "Users"
+        case .repositories: return R.string.localizable.searchRepositoriesSegmentTitle.key.localized()
+        case .users: return R.string.localizable.searchUsersSegmentTitle.key.localized()
         }
     }
 }
@@ -46,13 +46,13 @@ class SearchViewController: TableViewController {
         super.makeUI()
 
         navigationItem.titleView = segmentedControl
-        if #available(iOS 11.0, *) {
-            navigationController?.navigationBar.prefersLargeTitles = false
-        }
+
+        languageChanged.subscribe(onNext: { [weak self] () in
+            self?.segmentedControl.setTitle(SearchSegments.repositories.title, forSegmentAt: 0)
+            self?.segmentedControl.setTitle(SearchSegments.users.title, forSegmentAt: 1)
+        }).disposed(by: rx.disposeBag)
 
         stackView.insertArrangedSubview(searchBar, at: 0)
-
-        searchBar.hero.id = "TopHeaderId"
 
         tableView.register(R.nib.repositoryCell)
         tableView.register(R.nib.userCell)
@@ -70,7 +70,7 @@ class SearchViewController: TableViewController {
                                           selection: tableView.rx.modelSelected(SearchSectionItem.self).asDriver())
         let output = viewModel.transform(input: input)
 
-        output.fetching.asObservable().bind(to: isLoading).disposed(by: rx.disposeBag)
+        viewModel.loading.asObservable().bind(to: isLoading).disposed(by: rx.disposeBag)
 
         let dataSource = RxTableViewSectionedReloadDataSource<SearchSection>(configureCell: { dataSource, tableView, indexPath, item in
             switch item {
@@ -102,10 +102,6 @@ class SearchViewController: TableViewController {
 
         output.dismissKeyboard.drive(onNext: { [weak self] () in
             self?.searchBar.resignFirstResponder()
-        }).disposed(by: rx.disposeBag)
-
-        output.error.drive(onNext: { (error) in
-            logError("\(error)")
         }).disposed(by: rx.disposeBag)
     }
 }

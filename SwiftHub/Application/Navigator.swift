@@ -29,6 +29,9 @@ class Navigator {
         case userDetails(viewModel: UserViewModel)
         case repositories(viewModel: RepositoriesViewModel)
         case repositoryDetails(viewModel: RepositoryViewModel)
+        case events(viewModel: EventsViewModel)
+        case theme(viewModel: ThemeViewModel)
+        case language(viewModel: LanguageViewModel)
         case acknowledgements
         case safari(URL)
         case safariController(URL)
@@ -85,12 +88,27 @@ class Navigator {
             vc.viewModel = viewModel
             return vc
 
+        case .events(let viewModel):
+            let vc = R.storyboard.main.eventsViewController()!
+            vc.viewModel = viewModel
+            return vc
+
+        case .theme(let viewModel):
+            let vc = R.storyboard.main.themeViewController()!
+            vc.viewModel = viewModel
+            return vc
+
+        case .language(let viewModel):
+            let vc = R.storyboard.main.languageViewController()!
+            vc.viewModel = viewModel
+            return vc
+
         case .acknowledgements:
             let vc = AcknowListViewController()
             return vc
 
         case .safari(let url):
-            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            UIApplication.shared.open(url, options: convertToUIApplicationOpenExternalURLOptionsKeyDictionary([:]), completionHandler: nil)
             return ViewController()
 
         case .safariController(let url):
@@ -186,8 +204,10 @@ class Navigator {
                 sender.present(nav, animated: true, completion: nil)
             }
         case .detail:
-            let nav = NavigationController(rootViewController: target)
-            sender.showDetailViewController(nav, sender: nil)
+            DispatchQueue.main.async {
+                let nav = NavigationController(rootViewController: target)
+                sender.showDetailViewController(nav, sender: nil)
+            }
         case .alert:
             DispatchQueue.main.async {
                 sender.present(target, animated: true, completion: nil)
@@ -213,4 +233,9 @@ class Navigator {
             injectNavigator(in: root)
         }
     }
+}
+
+// Helper function inserted by Swift 4.2 migrator.
+private func convertToUIApplicationOpenExternalURLOptionsKeyDictionary(_ input: [String: Any]) -> [UIApplication.OpenExternalURLOptionsKey: Any] {
+	return Dictionary(uniqueKeysWithValues: input.map { key, value in (UIApplication.OpenExternalURLOptionsKey(rawValue: key), value)})
 }

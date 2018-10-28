@@ -58,7 +58,9 @@ class LibsManager: NSObject {
         if let defaults = KafkaRefreshDefaults.standard() {
             defaults.headDefaultStyle = .replicatorAllen
             defaults.footDefaultStyle = .replicatorDot
-            defaults.themeColor = .secondary()
+            themeService.rx
+                .bind({ $0.secondary }, to: defaults.rx.themeColor)
+                .disposed(by: rx.disposeBag)
         }
     }
 
@@ -84,7 +86,7 @@ class LibsManager: NSObject {
 
     func setupCocoaLumberjack() {
         DDLog.add(DDTTYLogger.sharedInstance) // TTY = Xcode console
-        DDLog.add(DDASLLogger.sharedInstance) // ASL = Apple System Logs
+//        DDLog.add(DDASLLogger.sharedInstance) // ASL = Apple System Logs
 
         let fileLogger: DDFileLogger = DDFileLogger() // File Logger
         fileLogger.rollingFrequency = TimeInterval(60*60*24)  // 24 hours

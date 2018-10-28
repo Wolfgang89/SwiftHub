@@ -30,16 +30,12 @@ class UsersViewModel: ViewModel, ViewModelType {
     }
 
     struct Output {
-        let fetching: Driver<Bool>
-        let headerFetching: Driver<Bool>
-        let footerFetching: Driver<Bool>
         let navigationTitle: Driver<String>
         let items: BehaviorRelay<[UserCellViewModel]>
         let imageUrl: Driver<URL?>
         let textDidBeginEditing: Driver<Void>
         let dismissKeyboard: Driver<Void>
         let userSelected: Driver<UserViewModel>
-        let error: Driver<Error>
     }
 
     let mode: BehaviorRelay<UsersMode>
@@ -50,29 +46,24 @@ class UsersViewModel: ViewModel, ViewModelType {
     }
 
     func transform(input: Input) -> Output {
-        let activityIndicator = ActivityIndicator()
-        let headerActivityIndicator = ActivityIndicator()
-        let footerActivityIndicator = ActivityIndicator()
-        let errorTracker = ErrorTracker()
-
         let elements = BehaviorRelay<[UserCellViewModel]>(value: [])
         let dismissKeyboard = input.selection.mapToVoid()
 
         input.headerRefresh.flatMapLatest({ () -> Observable<[UserCellViewModel]> in
             self.page = 1
             return self.request()
-                .trackActivity(activityIndicator)
-                .trackActivity(headerActivityIndicator)
-                .trackError(errorTracker)
+                .trackActivity(self.loading)
+                .trackActivity(self.headerLoading)
+                .trackError(self.error)
                 .map { $0.map { UserCellViewModel(with: $0) } }
         }).bind(to: elements).disposed(by: rx.disposeBag)
 
         input.footerRefresh.flatMapLatest({ () -> Observable<[UserCellViewModel]> in
             self.page += 1
             return self.request()
-                .trackActivity(activityIndicator)
-                .trackActivity(footerActivityIndicator)
-                .trackError(errorTracker)
+                .trackActivity(self.loading)
+                .trackActivity(self.footerLoading)
+                .trackError(self.error)
                 .map { $0.map { UserCellViewModel(with: $0) } }
         }).map { elements.value + $0 }.bind(to: elements).disposed(by: rx.disposeBag)
 
@@ -86,10 +77,10 @@ class UsersViewModel: ViewModel, ViewModelType {
 
         let navigationTitle = mode.map({ (mode) -> String in
             switch mode {
-            case .followers: return "Followers"
-            case .following: return "Following"
-            case .watchers: return "Watchers"
-            case .stars: return "Stargazers"
+            case .followers: return R.string.localizable.usersFollowersNavigationTitle.key.localized()
+            case .following: return R.string.localizable.usersFollowingNavigationTitle.key.localized()
+            case .watchers: return R.string.localizable.usersWatchersNavigationTitle.key.localized()
+            case .stars: return R.string.localizable.usersStargazersNavigationTitle.key.localized()
             }
         }).asDriver(onErrorJustReturn: "")
 
@@ -102,16 +93,12 @@ class UsersViewModel: ViewModel, ViewModelType {
             }
         }).asDriver(onErrorJustReturn: nil)
 
-        return Output(fetching: activityIndicator.asDriver(),
-                      headerFetching: headerActivityIndicator.asDriver(),
-                      footerFetching: footerActivityIndicator.asDriver(),
-                      navigationTitle: navigationTitle,
+        return Output(navigationTitle: navigationTitle,
                       items: elements,
                       imageUrl: imageUrl,
                       textDidBeginEditing: textDidBeginEditing,
                       dismissKeyboard: dismissKeyboard,
-                      userSelected: userDetails,
-                      error: errorTracker.asDriver())
+                      userSelected: userDetails)
     }
 
     func request() -> Observable<[User]> {
@@ -122,9 +109,9 @@ class UsersViewModel: ViewModel, ViewModelType {
         case .following(let user):
             request = self.provider.userFollowing(username: user.login ?? "", page: self.page)
         case .watchers(let repository):
-            request = self.provider.watchers(owner: repository.owner?.login ?? "", repo: repository.name ?? "", page: self.page)
+            request = self.provider.watchers(fullName: repository.fullName ?? "", page: self.page)
         case .stars(let repository):
-            request = self.provider.stargazers(owner: repository.owner?.login ?? "", repo: repository.name ?? "", page: self.page)
+            request = self.provider.stargazers(fullName: repository.fullName ?? "", page: self.page)
         }
         return request
     }

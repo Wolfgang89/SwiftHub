@@ -13,6 +13,7 @@ import Kingfisher
 import DZNEmptyDataSet
 import NVActivityIndicatorView
 import Hero
+import Localize_Swift
 
 class ViewController: UIViewController, Navigatable, NVActivityIndicatorViewable {
 
@@ -28,9 +29,11 @@ class ViewController: UIViewController, Navigatable, NVActivityIndicatorViewable
         }
     }
 
-    var emptyDataSetTitle = "No Results"
+    var emptyDataSetTitle = R.string.localizable.commonNoResults.key.localized()
     var emptyDataSetImage = R.image.image_no_result()
     var emptyDataSetImageTintColor = BehaviorRelay<UIColor?>(value: nil)
+
+    let languageChanged = BehaviorRelay<Void>(value: ())
 
     let motionShakeEvent = PublishSubject<Void>()
 
@@ -42,7 +45,6 @@ class ViewController: UIViewController, Navigatable, NVActivityIndicatorViewable
     lazy var backBarButton: BarButtonItem = {
         let view = BarButtonItem()
         view.title = ""
-        view.tintColor = .secondary()
         return view
     }()
 
@@ -93,23 +95,30 @@ class ViewController: UIViewController, Navigatable, NVActivityIndicatorViewable
 
         // Observe device orientation change
         NotificationCenter.default
-            .rx.notification(NSNotification.Name.UIDeviceOrientationDidChange)
+            .rx.notification(UIDevice.orientationDidChangeNotification)
             .subscribe { [weak self] (event) in
                 self?.orientationChanged()
             }.disposed(by: rx.disposeBag)
 
         // Observe application did become active notification
         NotificationCenter.default
-            .rx.notification(NSNotification.Name.UIApplicationDidBecomeActive)
+            .rx.notification(UIApplication.didBecomeActiveNotification)
             .subscribe { [weak self] (event) in
                 self?.didBecomeActive()
             }.disposed(by: rx.disposeBag)
 
         NotificationCenter.default
-            .rx.notification(NSNotification.Name.UIAccessibilityReduceMotionStatusDidChange)
+            .rx.notification(UIAccessibility.reduceMotionStatusDidChangeNotification)
             .subscribe(onNext: { (event) in
-            logDebug("Motion Status changed")
-        }).disposed(by: rx.disposeBag)
+                logDebug("Motion Status changed")
+            }).disposed(by: rx.disposeBag)
+
+        // Observe application did change language notification
+        NotificationCenter.default
+            .rx.notification(NSNotification.Name(LCLLanguageChangeNotification))
+            .subscribe { [weak self] (event) in
+                self?.languageChanged.accept(())
+            }.disposed(by: rx.disposeBag)
 
         // Two finger swipe gesture for opening Flex
         let twoSwipeGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleTwoFingerSwipe(swipeRecognizer:)))
@@ -150,14 +159,18 @@ class ViewController: UIViewController, Navigatable, NVActivityIndicatorViewable
         hero.isEnabled = true
         navigationItem.backBarButtonItem = backBarButton
 
+        languageChanged.subscribe(onNext: { [weak self] () in
+            self?.emptyDataSetTitle = R.string.localizable.commonNoResults.key.localized()
+        }).disposed(by: rx.disposeBag)
+
         motionShakeEvent.subscribe(onNext: { () in
-            let theme = themeService.theme == .dark ? ThemeType.light : ThemeType.dark
-            theme.save()
+            let theme = themeService.theme.toggled()
             themeService.set(theme)
         }).disposed(by: rx.disposeBag)
 
         themeService.rx
             .bind({ $0.primary }, to: view.rx.backgroundColor)
+            .bind({ $0.secondary }, to: [backBarButton.rx.tintColor, closeBarButton.rx.tintColor])
             .bind({ $0.text }, to: self.rx.emptyDataSetImageTintColorBinder)
             .disposed(by: rx.disposeBag)
 
@@ -172,7 +185,7 @@ class ViewController: UIViewController, Navigatable, NVActivityIndicatorViewable
 
     }
 
-    override func motionEnded(_ motion: UIEventSubtype, with event: UIEvent?) {
+    override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
         if motion == .motionShake {
             motionShakeEvent.onNext(())
         }

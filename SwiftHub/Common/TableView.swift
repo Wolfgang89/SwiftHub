@@ -14,7 +14,7 @@ class TableView: UITableView {
         super.init(frame: CGRect(), style: .grouped)
     }
 
-    override init(frame: CGRect, style: UITableViewStyle) {
+    override init(frame: CGRect, style: UITableView.Style) {
         super.init(frame: frame, style: style)
         makeUI()
     }
@@ -25,8 +25,9 @@ class TableView: UITableView {
     }
 
     func makeUI() {
-        rowHeight = UITableViewAutomaticDimension
+        rowHeight = UITableView.automaticDimension
         estimatedRowHeight = 50
+        sectionHeaderHeight = 40
         backgroundColor = .clear
         cellLayoutMarginsFollowReadableWidth = false
         keyboardDismissMode = .onDrag
